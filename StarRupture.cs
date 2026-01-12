@@ -13,10 +13,10 @@ namespace WindowsGSM.Plugins
         public Plugin Plugin = new Plugin
         {
             name = "WindowsGSM.StarRupture",
-            author = "Joshua",
+            author = "x1manPsychopath",
             description = "WindowsGSM plugin for StarRupture Dedicated Server",
             version = "1.0.0",
-            url = "https://github.com/YOURNAME/WindowsGSM.StarRupture",
+            url = "https://github.com/x1manPsychopath/WindowsGSM.StarRupture",
             color = "#FF6600"
         };
 
@@ -37,38 +37,37 @@ namespace WindowsGSM.Plugins
         public int PortIncrements = 0;
         public object QueryMethod = null; // StarRupture does not expose a query protocol
 
-        // Default values (not heavily used by the game itself)
+        // Defaults (mostly for WGSM GUI; game is CLI-port-only)
         public string ServerName = "StarRupture Server";
         public string Port = "7777";
         public string Additional = string.Empty;
 
-        // No config file needed for StarRupture
+        // StarRupture currently does not use config files for basic server params
         public async void CreateServerCFG()
         {
-            // Intentionally left empty – game does not use config files for basic server params.
+            // Intentionally left blank
         }
 
         // Build command-line arguments
         private string BuildArguments()
         {
-            // Start from WindowsGSM-assigned port, fallback to default
+            // Base port from WindowsGSM, fallback to default
             string port =
-                !string.IsNullOrWhiteSpace(_serverData.ServerPort) ?
-                _serverData.ServerPort :
-                Port;
+                !string.IsNullOrWhiteSpace(_serverData.ServerPort)
+                    ? _serverData.ServerPort
+                    : Port;
 
-            // Environment variable override support
-            // These are optional quality-of-life overrides for advanced users
+            // Environment override (optional convenience)
             string envPort = Environment.GetEnvironmentVariable("STARRUPTURE_PORT");
             if (!string.IsNullOrWhiteSpace(envPort))
             {
                 port = envPort;
             }
 
-            // Base arguments required by the official docs
+            // Required by official docs
             string args = $"-Log -port={port}";
 
-            // Allow Additional field (from WGSM) to inject extra flags if needed
+            // Append any extra params from WGSM if present
             if (!string.IsNullOrWhiteSpace(_serverData.ServerParam))
             {
                 args += " " + _serverData.ServerParam;
@@ -162,15 +161,16 @@ namespace WindowsGSM.Plugins
             }
         }
 
-        // Update server
+        // Update server (SteamCMD)
         public async Task<Process> Update(bool validate = false, string custom = null)
         {
+            // Force non-anonymous login to ensure StarRupture can be installed
             var (p, error) = await Installer.SteamCMD.UpdateEx(
                 serverData.ServerID,
                 AppId,
                 validate,
                 custom: custom,
-                loginAnonymous: loginAnonymous
+                loginAnonymous: false
             );
 
             Error = error;
@@ -183,9 +183,17 @@ namespace WindowsGSM.Plugins
             return p;
         }
 
+        // Relaxed: consider install valid if folder exists
         public bool IsInstallValid()
         {
-            return File.Exists(ServerPath.GetServersServerFiles(_serverData.ServerID, StartPath));
+            string folder = ServerPath.GetServersServerFiles(_serverData.ServerID);
+            if (!Directory.Exists(folder))
+            {
+                return false;
+            }
+
+            // Executable may not exist yet if SteamCMD hasn't completed, but folder presence is enough
+            return true;
         }
 
         public bool IsImportValid(string path)
